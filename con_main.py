@@ -12,6 +12,7 @@ class MainAgent(Endpoints):
         self.identity = identity
         self.label = label
         self.process = None
+        self.connection_id = None
 
     async def create_wallet(self, overwrite=False, wallet_key=None):
         """Provisions a wallet.  No support for askar type at this time."""
@@ -49,10 +50,19 @@ class MainAgent(Endpoints):
         }
         print(wallet_info)
 
+    async def schema_process(self):
+        # return a list of all created schemas in the wallet.
+        # get schema details
+        # get schema id and register schema as a credential definition
+        schema_name = input("Enter schema name:")
+        schema_attrs = input("Enter schema attributes. Use spaces as separators. Example: 'name age location'.")
+        attributes = schema_attrs.split(" ")
+        print(attributes)
+        schema_version = input("Enter schema version.")
+        # self.create_schema(attr, name, version)
 
 async def debug_menu(base):
     debug_options = {
-
         1: {
             "text": "is agent running",
             "action": base.config_ports_in_use,
@@ -131,14 +141,22 @@ async def main():
             }
         },
         5: {
+            'text': "Create Invitation",
+            'action': base.generate_invite,
+            'args': {
+                'auto_accept': True,
+            },
+        },
+        6: {
             'text': "Debug Menu",
             'action': debug_menu,
             'args': {
-                'base': base
-            }
-        }
+                'base': base,
+            },
+    }
     }
     while True:
+        await asyncio.sleep(2.0)
         print("OPTIONS:")
         for num, opt in options.items():
             print(f"{num}. {opt['text']}")

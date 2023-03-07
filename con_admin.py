@@ -1,6 +1,4 @@
-import asyncio
-import os
-from urllib.error import HTTPError
+import sys
 import subprocess
 from aiohttp import ClientSession, ClientConnectorError
 from con_endpoints import *
@@ -64,6 +62,7 @@ class Admin(Utilities):
                           wallet_storage_type="default",
                           genesis_url=None,
                           genesis_transactions=None,
+                          tails_url=None,
                           debug=True,
                           debug_automate=True,
                           public_invites=True,
@@ -71,6 +70,7 @@ class Admin(Utilities):
                           trace_target="log",
                           trace_tag="acapy.trace",
                           trace_label="acapy.event",
+                          revocation=False,
                           # endorser_public_did=None
 
                           ):
@@ -104,10 +104,12 @@ class Admin(Utilities):
                 "--auto-ping-connection",
                 "--auto-respond-messages"
             ])
-        if public_invites:
-            agent_args.append("--public-invites")
         if preserve_exchange_records:
             agent_args.append("--preserve-exchange-records")
+        if public_invites:
+            agent_args.append("--public-invites")
+        if revocation:
+            agent_args.append(("tails-server-base-url", tails_url)),
         # check if agent is already running.
         if self.config_ports_in_use:
             await self.terminate_agent()
@@ -119,7 +121,6 @@ class Admin(Utilities):
             await self.run_process(process=process, args=command)
         except Exception as e:
             print("Error")
-
 
     def config_ports_in_use(self):
         occupied_ports = [port for port in PORTS if self.is_port_in_use(INTERNAL, port)]
@@ -193,13 +194,14 @@ class Admin(Utilities):
         logging.debug(admin_url)
         async with ClientSession() as session:
             try:
-                async with session.request(method=method, url=admin_url, data=payload, headers=headers, params=params) as response:
+                async with session.request(method=method, url=admin_url, data=payload, headers=headers,
+                                           params=params) as response:
+                    await asyncio.sleep(2.0)
                     response = await response.text()
             except Exception as ConnectionError:
-                logging.critical(f"{ConnectionError}\nError occurred during admin {method}.")
+                logging.warning(f"An error may have occurred during connection to {admin_url}.")
             else:
                 return response
-
 
     async def run_process(self, args, process):
         try:
@@ -216,3 +218,6 @@ class Admin(Utilities):
             print(f"Agent has been closed successfully: {response}")
         # except Exception as e:
         #     logging.warning("Ran into issue terminating agent. Agent may already be closed.")
+
+    def terminate_session(self):
+        sys.exit()

@@ -1,5 +1,7 @@
 import secrets
 import socket
+import string
+
 
 class Utilities:
     def flatten(self, args):
@@ -10,10 +12,14 @@ class Utilities:
                 yield arg
 
     def generate_seed(self, label: str, bytestring: bool, length=32):
+        lexicon = string.ascii_letters + string.digits
         if bytestring is True:
             result = secrets.token_bytes()
         else:
-            result = (label + ("".join(["0" for i in range(0, length)])))[:length]
+            if label:
+                result = (label + ("".join(["0" for i in range(0, length)])))[:length]
+            else:
+                result = "".join([secrets.choice(lexicon) for i in range(0, length)])
         return result
 
     def is_port_in_use(self, host, port):
