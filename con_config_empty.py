@@ -24,8 +24,16 @@ ENDPOINT = f'{OUTBOUND}://{LOCAL_IP}:{str(INBOUND_PORT)}'
 DEFAULT_KEY = "Your key"
 DEFAULT_WALLET_NAME = "Alice"
 DEFAULT_WALLET_TYPE = "indy"
+VER_KEY = None
 SEED = "Your seed"
 
+SCHEMA_ID = None
+SCHEMA_ISSUER_DID = None
 SCHEMA_ATTR = ["name", "age", "DOB"]
 SCHEMA_NAME = "example_schema"
 SCHEMA_VERSION = "1.0"
+
+
+
+
+

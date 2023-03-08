@@ -14,54 +14,108 @@ class MainAgent(Endpoints):
         self.process = None
         self.connection_id = None
 
-    async def create_wallet(self, overwrite=False, wallet_key=None):
+    async def create_wallet(self, overwrite=False, wallet_key=None, wallet_type='indy', wallet_name='My Wallet'):
         """Provisions a wallet.  No support for askar type at this time."""
         seed_for_wallet = self.generate_seed(bytestring=False, label=self.label, length=32)
-        print(f"Seed Value: {seed_for_wallet}")
+        logging.info(f"Seed Value: {seed_for_wallet}")
         wallet_types = {"indy", "basic"}
         wallet_name = input("Wallet Name: ")
         wallet_type = input(f"Wallet Type:\nChoose {' or '.join(wallet_types)}.").lower()
         if wallet_type not in wallet_types:
+            logging.warning(f"Invalid entry. Default will be selected: {wallet_type}")
             wallet_type = "indy"
-            print(f"Invalid entry. Default will be selected: {wallet_type}")
         if not wallet_key:
             wallet_key = self.generate_seed(bytestring=False, label=self.label)
-        print(f"Wallet Key generated: {wallet_key}")
-        await self.provision_agent(process=self.process,
-                                   endpoint=ADMIN_ENDPOINT,
-                                   recreate_wallet=overwrite,
-                                   genesis_url=GENESIS_ENDPOINT,
-                                   wallet_name=wallet_name,
-                                   wallet_type=wallet_type,
-                                   wallet_key=wallet_key,
-                                   seed=seed_for_wallet,
-                                   profile_endpoint=PROFILE_ENDPOINT,
-                                   )
-        did, ver_key = await self.register_did(alias=self.label, seed=seed_for_wallet, local_scope=False)
-        if did is None and ver_key is None:
-            return "Error: Could not register wallet."
-        wallet_info = {
-            "Wallet Name": wallet_name,
-            "Wallet Type": wallet_type,
-            "Wallet Key": wallet_key,
-            "Wallet DID": did,
-            "Wallet VerKey": ver_key,
-            "Wallet Seed": seed_for_wallet,
-        }
-        print(wallet_info)
+        print(f"Wallet Key: {wallet_key}")
+        try:
+            await self.provision_agent(process=self.process,
+                                       endpoint=ADMIN_ENDPOINT,
+                                       recreate_wallet=overwrite,
+                                       genesis_url=GENESIS_ENDPOINT,
+                                       wallet_name=wallet_name,
+                                       wallet_type=wallet_type,
+                                       wallet_key=wallet_key,
+                                       seed=seed_for_wallet,
+                                       profile_endpoint=PROFILE_ENDPOINT,
+                                       )
+            did, ver_key = await self.register_did(alias=self.label, seed=seed_for_wallet, local_scope=False)
+            if did is None and ver_key is None:
+                logging.error("Error: Could not register wallet.")
+                return None
+            wallet_info = {
+                "Wallet Name": wallet_name,
+                "Wallet Type": wallet_type,
+                "Wallet Key": wallet_key,
+                "Wallet DID": did,
+                "Wallet VerKey": ver_key,
+                "Wallet Seed": seed_for_wallet,
+            }
+            logging.info(wallet_info)
+            return wallet_info
+        except Exception as e:
+            logging.error(f"Error creating wallet: {str(e)}")
+            return None
 
-    async def schema_process(self):
-        # return a list of all created schemas in the wallet.
-        # get schema details
-        # get schema id and register schema as a credential definition
-        schema_name = input("Enter schema name:")
-        schema_attrs = input("Enter schema attributes. Use spaces as separators. Example: 'name age location'.")
-        attributes = schema_attrs.split(" ")
-        print(attributes)
-        schema_version = input("Enter schema version.")
-        # self.create_schema(attr, name, version)
+    async def schema_query_second_menu(self):
+        schema_name = None
+        schema_id = None
+        schema_version = None
+        schema_issuer_did = None
+        selection = int(
+            input("Which parameter would you like to query?\n1.Name\n2.ID\n3.Version\n4.Issuer DID"))
+        match selection:
+            case 1:
+                schema_name = input("Schema Name?")
+            case 2:
+                schema_id = input("Schema Id?")
+            case 3:
+                schema_version = input("Schema Version?")
+            case 4:
+                schema_issuer_did = input("Schema Issuer Did?")
+        response = await self.search_schema(schema_id=schema_id,
+                                            schema_version=schema_version,
+                                            schema_issuer_did=schema_issuer_did,
+                                            schema_name=schema_name)
+        return response
+
+    async def schema_query_primary_menu(self):
+        schema_menu = True
+        print("SCHEMA MENU")
+        options = {
+            1: {
+                "text": "Use the Config Parameters",
+                "action": self.search_schema,
+                "args": {'schema_id': SCHEMA_ID,
+                         'schema_name': SCHEMA_NAME,
+                         'schema_version': SCHEMA_VERSION,
+                         'schema_issuer_did': SCHEMA_ISSUER_DID}
+            },
+            2: {
+                "text": "Enter Manually",
+                "action": self.schema_query_second_menu,
+                "args": {},
+            },
+        }
+        while schema_menu:
+            for num, opt in options.items():
+                print(f"{num}. {opt['text']}")
+            try:
+                option_choice = int(input("Enter option number: "))
+            except ValueError:
+                print("Invalid input. Please enter a number.\n")
+                continue
+
+            if option_choice in options:
+                option = options[option_choice]
+                print(f"Performing action: {option['text']}")
+                schema_menu = False
+                await option['action'](**option['args'])
+            else:
+                print("Invalid option. Please choose a valid option.\n")
+
 
 async def debug_menu(base):
+    debug = True
     debug_options = {
         1: {
             "text": "is agent running",
@@ -76,7 +130,7 @@ async def debug_menu(base):
         }
     }
     print("DEBUG MENU OPTIONS:")
-    while True:
+    while debug:
         for num, opt in debug_options.items():
             print(f"{num}. {opt['text']}")
         try:
@@ -84,11 +138,14 @@ async def debug_menu(base):
         except ValueError:
             print("Invalid input. Please enter a number.\n")
             continue
-
         if option_choice in debug_options:
             option = debug_options[option_choice]
             print(f"Performing action: {option['text']}")
-            await option['action'](**option['args'])
+            debug = False
+            try:
+                await option['action'](**option['args'])
+            except Exception as e:
+                option['action'](**option['args'])
         else:
             print("Invalid option. Please choose a valid option.\n")
 
@@ -141,19 +198,26 @@ async def main():
             }
         },
         5: {
+            'text': "Schema Search",
+            'action': base.schema_query_primary_menu,
+            'args': {
+
+            }
+        },
+        6: {
             'text': "Create Invitation",
             'action': base.generate_invite,
             'args': {
                 'auto_accept': True,
             },
         },
-        6: {
+        7: {
             'text': "Debug Menu",
             'action': debug_menu,
             'args': {
                 'base': base,
             },
-    }
+        }
     }
     while True:
         await asyncio.sleep(2.0)
@@ -170,7 +234,10 @@ async def main():
         if option_choice in options:
             option = options[option_choice]
             print(f"Performing action: {option['text']}")
-            await option['action'](**option['args'])
+            try:
+                await option['action'](**option['args'])
+            except Exception as e:
+                option['action'](**option['args'])
         else:
             print("Invalid option. Please choose a valid option.\n")
 

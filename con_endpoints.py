@@ -9,9 +9,7 @@ from con_utils import Utilities
 from con_admin import Admin
 
 
-class Provision(Enum):
-    CREATE_WALLET = 1
-    CREATE_SCHEMA = 2
+
 
 
 class Endpoints(Admin):
@@ -43,10 +41,27 @@ class Endpoints(Admin):
         else:
             return "There was an error in creating a schema."
 
-    async def get_registered_schema(self):
-        url = f"{ADMIN_ENDPOINT}/schemas/created"
+    async def search_schema(self, schema_id=None, schema_issuer_did=None, schema_name=None, schema_version=None):
+        suffix = "/schemas/created"
+        payload = {}
+        if schema_id:
+            payload["schema_id"] = schema_id
+        if schema_issuer_did:
+            payload["schema_issuer_did"] = schema_issuer_did
+        if schema_name:
+            payload["schema_name"] = schema_name
+        if schema_version:
+            payload["schema_version"] = schema_version
+        response = await self.admin_request(method="GET", suffix=suffix, payload=payload)
+        pprint(response)
+        # print(payload)
+
+    async def register_creddef(self, schema_id):
+        # Get schema id.
+        pass
 
     async def generate_invite(self, auto_accept: bool, did_exchange=False, mediation=False, mediation_id=None):
+        invite = None
         # specify a connection id to ensure it has been reset to None.
         params = {"auto_accept": json.dumps(auto_accept)}
         if did_exchange:
@@ -71,13 +86,4 @@ class Endpoints(Admin):
                 invite = await self.admin_request(method="POST", suffix=suffix, payload=None, params=None)
         pprint(invite)
         return invite
-        # endpoint = f"{ADMIN_ENDPOINT}/connections/create-invitation"
-        # headers = "application/json"
-        # payload = {
-        #     "handshake_protocols": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0",
-        #     "auto_accept": auto_accept,
-        #     "public": public,
-        # }
 
-
-key = "EXI6rzZH9xuMR7b5zo8gRjPkvCKeEQqLJsLvgsJ/iWpwTu9+XEI2NhPcooDxkVS5"
